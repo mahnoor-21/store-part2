@@ -22,7 +22,7 @@ export type FormState = {
 }
 
 // Signup action
-export async function signup(prevState: FormState, formData: FormData): Promise<FormState> {
+export async function signup( formData: FormData): Promise<FormState> {
   console.log("Signup action called with FormData:", Object.fromEntries(formData.entries()));
 
   // Extract values safely

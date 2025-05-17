@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useFormState } from "react-use-form-state";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,67 +12,53 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { signup } from "@/lib/actions/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+type FormData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  terms: boolean;
+};
+
 export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [formState, formAction] = useFormState(signup);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    getValues,
+  } = useForm<FormData>({ mode: "onTouched" });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // console.log("Form data: ", formData); // Debugging
-  
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: FormData) => {
     setErrorMsg("");
     setSuccessMsg("");
 
-  
     if (step === 1) {
-      console.log("Step 1 form data: ", formData);
       setStep(2);
       return;
     }
-  
-    setIsLoading(true);
-  
-    const formDataToBeSent = new FormData();
 
-    Object.entries(formData).forEach(([key, value]) => {
-      console.log(`Appending ${key}: ${value}`); // Debugging
-      formDataToBeSent.append(key, value);
+    setIsLoading(true);
+
+    const formDataToSend = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (key !== "terms") formDataToSend.append(key, value as string);
     });
-    
-    // Debugging: Check if formDataToBeSent is populated
-    console.log("Submit data before sending:", Object.fromEntries(formDataToBeSent.entries()));
-    
-    
-  
+
     try {
-      const result = await signup(formState, formDataToBeSent);
-      console.log("Signup result: ", result);
-    
+      const result = await signup(formDataToSend);
       setIsLoading(false);
-    
+
       if (result?.success) {
-        setSuccessMsg("Account created successfully! Redirecting to login page...");
+        setSuccessMsg("Account created successfully! Redirecting...");
         setTimeout(() => router.push("/login"), 2000);
       } else {
-        // Extract the first error message dynamically
         const errorMsg =
           result?.errors?.firstName?.[0] ||
           result?.errors?.lastName?.[0] ||
@@ -81,22 +67,15 @@ export default function SignupPage() {
           result?.errors?.confirmPassword?.[0] ||
           result?.errors?._form?.[0] ||
           "Signup failed";
-    
+
         setErrorMsg(errorMsg);
       }
     } catch (error) {
       console.error("Signup failed", error);
+      setErrorMsg("An unexpected error occurred.");
       setIsLoading(false);
     }
-    
   };
-
-  console.log(successMsg);
-  
-  console.log(errorMsg);
-  
-  
-  
 
   return (
     <div className="container mx-auto flex min-h-[80vh] items-center justify-center px-4 py-12">
@@ -111,56 +90,120 @@ export default function SignupPage() {
           <p className="text-muted-foreground">Join our community of book lovers</p>
 
           {errorMsg && (
-  <Alert variant="destructive" className="mb-4">
-    <AlertDescription>{errorMsg}</AlertDescription>
-  </Alert>
-)}
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
 
-{successMsg && (
-  <Alert variant="success" className="mb-4">
-    <AlertDescription>{successMsg}</AlertDescription>
-  </Alert>
-)}
+          {successMsg && (
+            <Alert variant="success" className="mb-4">
+              <AlertDescription>{successMsg}</AlertDescription>
+            </Alert>
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {step === 1 ? (
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" name="firstName" placeholder="John" value={formData.firstName} onChange={handleChange} required />
+                    <Input
+                      id="firstName"
+                      {...register("firstName", { required: "First name is required" })}
+                      placeholder="John"
+                    />
+                    {errors.firstName && (
+                      <p className="text-sm text-red-500">{errors.firstName.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" name="lastName" placeholder="Doe" value={formData.lastName} onChange={handleChange} required />
+                    <Input
+                      id="lastName"
+                      {...register("lastName", { required: "Last name is required" })}
+                      placeholder="Doe"
+                    />
+                    {errors.lastName && (
+                      <p className="text-sm text-red-500">{errors.lastName.message}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" placeholder="you@example.com" value={formData.email} onChange={handleChange} required />
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email", {
+                      required: "Email is required",
+                      pattern: {
+                        value: /^\S+@\S+$/i,
+                        message: "Invalid email address",
+                      },
+                    })}
+                    placeholder="you@example.com"
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" name="password" type="password" placeholder="••••••••" value={formData.password} onChange={handleChange} required />
+                  <Input
+                    id="password"
+                    type="password"
+                    {...register("password", {
+                      required: "Password is required",
+                      minLength: {
+                        value: 6,
+                        message: "Password must be at least 6 characters",
+                      },
+                    })}
+                    placeholder="••••••••"
+                  />
+                  {errors.password && (
+                    <p className="text-sm text-red-500">{errors.password.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input id="confirmPassword" name="confirmPassword" type="password" placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} required />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    {...register("confirmPassword", {
+                      validate: (value) =>
+                        value === getValues("password") || "Passwords do not match",
+                    })}
+                    placeholder="••••••••"
+                  />
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="terms" required />
+                  <Checkbox id="terms" {...register("terms", { required: true })} />
                   <Label htmlFor="terms" className="text-sm">
-                    I agree to the <Link href="#" className="text-primary hover:underline">Terms</Link> and <Link href="#" className="text-primary hover:underline">Privacy Policy</Link>
+                    I agree to the{" "}
+                    <Link href="#" className="text-primary hover:underline">Terms</Link> and{" "}
+                    <Link href="#" className="text-primary hover:underline">Privacy Policy</Link>
                   </Label>
                 </div>
+                {errors.terms && (
+                  <p className="text-sm text-red-500">You must agree to the terms</p>
+                )}
               </div>
             )}
             <div className="flex gap-2">
-              {step === 2 && <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">Back</Button>}
-              <Button type="submit" className="flex-1" disabled={isLoading}>{step === 1 ? "Continue" : isLoading ? "Creating Account..." : "Create Account"}</Button>
+              {step === 2 && (
+                <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">
+                  Back
+                </Button>
+              )}
+              <Button type="submit" className="flex-1" disabled={isLoading}>
+                {step === 1 ? "Continue" : isLoading ? "Creating Account..." : "Create Account"}
+              </Button>
             </div>
           </form>
         </motion.div>
