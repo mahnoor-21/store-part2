@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  store-app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: store_fullstack_app_2
+    ports:
+      - "4000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb+srv://mahnoor:mahnoor123@bookstore.mcdjg.mongodb.net/?retryWrites=true&w=majority&appName=B
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - store-network-2
+
+networks:
+  store-network-2:
+    driver: bridge
